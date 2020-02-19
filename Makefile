@@ -6,59 +6,63 @@ EMU   	 	:= qemu-system-x86_64
 DD       	:= dd
 TOUCH 		:= touch
 
-CFLAGS   	:= -ffreestanding -mno-red-zone -std=gnu99 -m32 -mcmodel=kernel -nostdlib
+CFLAGS   	:= -ffreestanding -mno-red-zone -std=gnu99 -m32 -nostdlib
 CFLAGS		+= -Wall -Werror -Wextra -Wparentheses -Wmissing-declarations -Wunreachable-code -Wunused 
-CFLAGS		+= -Wmissing-field-initializers -Wmissing-prototypes -Wpointer-arith -Wswitch-enum
-CFLAGS		+= -Wredundant-decls -Wshadow -Wstrict-prototypes -Wswitch-default -Wuninitialized
+CFLAGS		+= -Wmissing-field-initializers -Wmissing-prototypes -Wswitch-enum
+CFLAGS		+= -Wredundant-decls -Wshadow -Wswitch-default -Wuninitialized
+CFLAGS      += -fstrength-reduce -fomit-frame-pointer -finline-functions -nostdinc -fno-builtin -fno-pie
 ASMFLAGS 	:=
 BOOTFLAG 	:= -felf -g
 
-ISO   		:= img/SOS.iso
 SRC   		:= src
-DUMMY 		:= build/load.elf
 
-BUILD_DIR    := build
-#BOOT_FILES  := $(wildcard boot/*.S)
-BOOT_FILES  := $(wildcard boot/*.S)
-SYM_FILE    := build/load.elf
-BOOT_OBJS   := $(patsubst boot/%.S,build/%.elf,$(BOOT_FILES))
-IMG_DIR 	:= img
+BOOT_FILE   := kernel/boot.S
+MAIN_FILE   := kernel/kmain.c
+LIBK_FILES  := $(wildcard libk/*.c) 
+DEP_FILES   := $(wildcard build/*.d)
 
-ifeq ($(DEBUG),0)
-	CFLAGS += -O3 -flto
-else
-	CFLAGS += -fsanitize=undefined -Og -g -DDEBUG -fstack-protector
-endif 
+AOUT_DIR    := aout
+KERN_DIR    := kernel 
+BUILD_DIR   := build
+
+AOUT_TACOS  := aout/boot.o
+AOUT_MAIN   := aout/kmain.o
+LIBK_OBJS   := $(patsubst libk/%.c, build/%.o, $(LIBK_FILES))
+
+KERN_BIN   := tacoOS.bin
 
 .PHONY: all clean qemu_run
 
-all : $(BOOT_OBJS)
+all : $(KERN_BIN)
 
-qemu_run : $(DUMMY) 
-	@$(EMU) -kernel $(DUMMY)
+qemu_run : $(KERN_BIN)
+	$(EMU) -kernel $(KERN_BIN)
 
-qemu_debug : $(DUMMY) $(SYM_FILE)
-	@gdb -x .gdbinit -q
+clean :
+	@$(RM) -rf $(AOUT_DIR)
+	@$(RM) -rf $(BUILD_DIR)
+	@$(RM) -f $(KERN_BIN)
+	
 
-$(BOOT_OBJS) : $(BOOT_FILES) $(BUILD_DIR)/
-	$(ASM) $(BOOTFLAG) $(ASM_FLAGS) $(BOOT_FILES) -o $(BOOT_OBJS)
+$(KERN_BIN) : $(AOUT_TACOS) $(AOUT_MAIN) $(KERN_DIR)/
+	ld -T linker.ld -o $@ $(AOUT_TACOS) $(AOUT_MAIN) -melf_i386
 
-$(DUMMY) : img/%.flp : build/%.bin $(IMG_DIR)/ 
-	dd status=noxfer conv=notrunc if=$< of=$@
+$(AOUT_TACOS) : $(BOOT_FILE) $(AOUT_DIR)/
+	$(ASM) $(BOOTFLAG) -o $@ $(BOOT_FILE) 
 
-build/%.bin : build/%.elf 
-	objcopy -Obinary $< $@
+$(LIBK_OBJS) : build/%.o : libk/%.c $(BUILD_DIR)/
+	$(CC) $(CFLAGS) -MMD -I./include $< -c -o $@
 
-$(BUILD_DIR)/%.o : $(BUILD_DIR)/%.elf $(BUILD_DIR)/
-	$(CC) $(CFLAGS) $< -o $@ -T linker.ld
+$(AOUT_MAIN) : $(MAIN_FILE) $(AOUT_DIR)/
+	$(CC) $(CFLAGS) -I./include -c -o $@ $<
+
+$(AOUT_DIR)/ :
+	@mkdir $(AOUT_DIR)
+
+$(KERN_DIR)/ :
+	@mkdir $(KERN_DIR)
 
 $(BUILD_DIR)/ :
 	@mkdir $(BUILD_DIR)
 
-$(IMG_DIR)/ :
-	@mkdir $(IMG_DIR)
-
-clean :
-	@$(RM) -rf build
-	@$(RM) -rf img
-	@$(RM) -rf sym
+-include $(DEP_FILES)
