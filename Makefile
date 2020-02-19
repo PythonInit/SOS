@@ -11,17 +11,17 @@ CFLAGS		+= -Wall -Werror -Wextra -Wparentheses -Wmissing-declarations -Wunreacha
 CFLAGS		+= -Wmissing-field-initializers -Wmissing-prototypes -Wpointer-arith -Wswitch-enum
 CFLAGS		+= -Wredundant-decls -Wshadow -Wstrict-prototypes -Wswitch-default -Wuninitialized
 ASMFLAGS 	:=
-BOOTFLAG 	:= -fbin -g
+BOOTFLAG 	:= -felf -g
 
 ISO   		:= img/SOS.iso
 SRC   		:= src
-DUMMY 		:= img/load.flp
+DUMMY 		:= build/load.elf
 
 BUILD_DIR    := build
 #BOOT_FILES  := $(wildcard boot/*.S)
 BOOT_FILES  := $(wildcard boot/*.S)
 SYM_FILE    := build/load.elf
-BOOT_OBJS   := $(patsubst boot/%.S,build/%.bin,$(BOOT_FILES))
+BOOT_OBJS   := $(patsubst boot/%.S,build/%.elf,$(BOOT_FILES))
 IMG_DIR 	:= img
 
 ifeq ($(DEBUG),0)
@@ -35,7 +35,7 @@ endif
 all : $(BOOT_OBJS)
 
 qemu_run : $(DUMMY) 
-	@$(EMU) -fda $(DUMMY)
+	@$(EMU) -kernel $(DUMMY)
 
 qemu_debug : $(DUMMY) $(SYM_FILE)
 	@gdb -x .gdbinit -q
@@ -43,12 +43,11 @@ qemu_debug : $(DUMMY) $(SYM_FILE)
 $(BOOT_OBJS) : $(BOOT_FILES) $(BUILD_DIR)/
 	$(ASM) $(BOOTFLAG) $(ASM_FLAGS) $(BOOT_FILES) -o $(BOOT_OBJS)
 
-$(DUMMY) : img/%.flp : build/%.bin $(IMG_DIR)/
-	@dd status=noxfer conv=notrunc if=$< of=$@
+$(DUMMY) : img/%.flp : build/%.bin $(IMG_DIR)/ 
+	dd status=noxfer conv=notrunc if=$< of=$@
 
-$(SYM_FILE) : %.elf : %.bin
-	objcopy -Ibinary -Oelf32-little $< $@
-
+build/%.bin : build/%.elf 
+	objcopy -Obinary $< $@
 
 $(BUILD_DIR)/%.o : $(BUILD_DIR)/%.elf $(BUILD_DIR)/
 	$(CC) $(CFLAGS) $< -o $@ -T linker.ld
