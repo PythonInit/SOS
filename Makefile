@@ -6,13 +6,13 @@ EMU   	 	:= qemu-system-x86_64
 DD       	:= dd
 TOUCH 		:= touch
 
-CFLAGS   	:= -ffreestanding -mno-red-zone -std=gnu99 -m32 -nostdlib
+CFLAGS   	:= -ffreestanding -mno-red-zone -std=gnu99 -m64 -nostdlib
 CFLAGS		+= -Wall -Werror -Wextra -Wparentheses -Wmissing-declarations -Wunreachable-code -Wunused 
 CFLAGS		+= -Wmissing-field-initializers -Wmissing-prototypes -Wswitch-enum
 CFLAGS		+= -Wredundant-decls -Wshadow -Wswitch-default -Wuninitialized
-CFLAGS      += -fstrength-reduce -fomit-frame-pointer -finline-functions -nostdinc -fno-builtin -fno-pie
+CFLAGS      += -fstrength-reduce -fomit-frame-pointer -finline-functions -fno-builtin -fno-pie
 ASMFLAGS 	:=
-BOOTFLAG 	:= -felf -g
+BOOTFLAG 	:= -felf64 -g
 
 SRC   		:= src
 
@@ -45,7 +45,7 @@ clean :
 	
 
 $(KERN_BIN) : $(AOUT_TACOS) $(AOUT_MAIN) $(KERN_DIR)/
-	ld -T linker.ld -o $@ $(AOUT_TACOS) $(AOUT_MAIN) -melf_i386
+	ld -T linker.ld -o $@ $(AOUT_TACOS) $(AOUT_MAIN) -melf_x86_64
 
 $(AOUT_TACOS) : $(BOOT_FILE) $(AOUT_DIR)/
 	$(ASM) $(BOOTFLAG) -o $@ $(BOOT_FILE) 

@@ -1,7 +1,7 @@
 typedef long size_t;
 typedef long uintptr_t;
 
-#include <string.h>
+#include "string.h"
 
 void* memcpy (void* dst, const void* src, size_t n) {
     if (!((uintptr_t)src & 0x3) && !((uintptr_t)dst & 0x3)) {
